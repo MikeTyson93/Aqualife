@@ -18,8 +18,10 @@ import aqua.blatt1.common.Direction;
 import aqua.blatt1.common.FishModel;
 import aqua.blatt1.common.msgtypes.DeregisterRequest;
 import aqua.blatt1.common.msgtypes.HandoffRequest;
+import aqua.blatt1.common.msgtypes.NeighborUpdate;
 import aqua.blatt1.common.msgtypes.RegisterRequest;
 import aqua.blatt1.common.msgtypes.RegisterResponse;
+import aqua.blatt1.common.msgtypes.Token;
 import aqua.blatt2.broker.PoisonPill;
 
 public class Broker{
@@ -66,7 +68,24 @@ public class Broker{
 			lock.writeLock().lock();
 			clients.add(client_id, sender);
 			lock.writeLock().unlock();
+			int index_of_client = clients.indexOf(sender);
+			// get right neighbor of affected client
+			InetSocketAddress rightNeighbor = (InetSocketAddress) clients.getRightNeighorOf(index_of_client);
+			// get left neighbor of affected client
+		    InetSocketAddress leftNeighbor = (InetSocketAddress) clients.getLeftNeighorOf(index_of_client);
+		    // send this client the InetSocketAddresses from the left and right client
+		    endpoint.send(sender, new NeighborUpdate(leftNeighbor, rightNeighbor));
+		    // send the left client the InetSocketAddresses from the right neighbor
+		    endpoint.send(leftNeighbor, new NeighborUpdate(null, sender));
+		    // send the right client the InetSocketAddresses from the left neighbor
+		    endpoint.send(rightNeighbor, new NeighborUpdate(sender, null));
+		    
 			RegisterResponse response = new RegisterResponse(client_id);
+			if (first_client){
+				endpoint.send(sender, new Token());
+				first_client = false;
+			}
+			
 			return response;
 		}
 		
@@ -75,6 +94,13 @@ public class Broker{
 			lock.writeLock().lock();
 			clients.remove(index_of_client);
 			lock.writeLock().unlock();
+			// get right neighbor of affected client
+			InetSocketAddress rightNeighbor = (InetSocketAddress) clients.getRightNeighorOf(index_of_client);
+			// get left neighbor of affected client
+		    InetSocketAddress leftNeighbor = (InetSocketAddress) clients.getLeftNeighorOf(index_of_client);
+		    
+		    endpoint.send(leftNeighbor, new NeighborUpdate(null, rightNeighbor));
+		    endpoint.send(rightNeighbor, new NeighborUpdate(leftNeighbor, null));
 		}
 		
 		public void handoffFish(Serializable payload, InetSocketAddress sender) {
@@ -110,6 +136,7 @@ public class Broker{
 	ReadWriteLock lock = new ReentrantReadWriteLock();
 	boolean done = false;
 	ExecutorService Executor = Executors.newFixedThreadPool(4);
+	boolean first_client = true;
 	
 	public static void main(String [] args){
 		
