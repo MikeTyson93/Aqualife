@@ -11,6 +11,8 @@ import aqua.blatt1.common.msgtypes.HandoffRequest;
 import aqua.blatt1.common.msgtypes.NeighborUpdate;
 import aqua.blatt1.common.msgtypes.RegisterRequest;
 import aqua.blatt1.common.msgtypes.RegisterResponse;
+import aqua.blatt1.common.msgtypes.SnapshotMarker;
+import aqua.blatt1.common.msgtypes.SnapshotToken;
 import aqua.blatt1.common.msgtypes.Token;
 
 public class ClientCommunicator {
@@ -42,6 +44,12 @@ public class ClientCommunicator {
 		public void sendToken(InetSocketAddress left){
 			endpoint.send(left, new Token());
 		}
+		
+		public void sendMarker(InetSocketAddress left, InetSocketAddress right){
+			endpoint.send(left, new SnapshotMarker());
+			endpoint.send(right, new SnapshotMarker());
+		}
+		
 	}
 
 	public class ClientReceiver extends Thread {
@@ -71,6 +79,10 @@ public class ClientCommunicator {
 					if (right != null){
 						tankModel.setRightNeighbor(right);
 					}
+				}
+				
+				if (msg.getPayload() instanceof SnapshotMarker){
+					tankModel.getLocalSnapshot(msg.getSender());
 				}
 				
 				if (msg.getPayload() instanceof Token){

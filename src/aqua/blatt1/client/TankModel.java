@@ -13,6 +13,7 @@ import java.util.concurrent.TimeUnit;
 
 import aqua.blatt1.common.Direction;
 import aqua.blatt1.common.FishModel;
+import aqua.blatt1.common.msgtypes.SnapshotToken;
 import aqua.blatt1.common.msgtypes.Token;
 
 public class TankModel extends Observable implements Iterable<FishModel> {
@@ -29,7 +30,12 @@ public class TankModel extends Observable implements Iterable<FishModel> {
 	protected final ClientCommunicator.ClientForwarder forwarder;
 	protected boolean token;
 	protected Timer timer;
-
+	public boolean completed_snapshot = false;
+	int local_state = -1;
+	public enum State {
+		IDLE, LEFT, RIGHT, BOTH;
+	}
+	State recordState = State.IDLE;
 	public TankModel(ClientCommunicator.ClientForwarder forwarder) {
 		this.fishies = Collections.newSetFromMap(new ConcurrentHashMap<FishModel, Boolean>());
 		this.forwarder = forwarder;
@@ -53,6 +59,19 @@ public class TankModel extends Observable implements Iterable<FishModel> {
 	}
 
 	synchronized void receiveFish(FishModel fish) {
+		Direction direction = fish.getDirection();
+		//Fisch schwimmt nach links, kommt vom rechten Nachbarn
+		if (direction.getVector() == -1){
+			if (recordState == State.RIGHT || recordState == State.BOTH){
+				local_state++;
+			}
+		}
+		// Fisch schwimmt nach rechts, kommt von linken Nachbarn
+		if (direction.getVector() == +1){
+			if (recordState == State.LEFT || recordState == State.BOTH){
+				local_state++;
+			}
+		}
 		fish.setToStart();
 		fishies.add(fish);
 	}
@@ -139,4 +158,50 @@ public class TankModel extends Observable implements Iterable<FishModel> {
 	public void setRightNeighbor(InetSocketAddress rightNeighbor){
 		this.rightNeighbor = rightNeighbor;
 	}
+	
+	public void initiateSnapshot(){
+		local_state = fishies.size();
+		recordState = State.BOTH;
+		forwarder.sendMarker(leftNeighbor, rightNeighbor);
+	}
+	
+	public void getLocalSnapshot(InetSocketAddress neighbor){
+		
+		if (neighbor == leftNeighbor){
+			if (recordState == State.BOTH){
+				this.recordState = State.IDLE;
+				completed_snapshot = true;
+				//forwarder.sendMarker(this.leftNeighbor, this.rightNeighbor);
+				return;
+			}
+			if (recordState == State.IDLE){
+				this.local_state = fishies.size();
+				this.recordState = State.RIGHT;
+				forwarder.sendMarker(leftNeighbor, rightNeighbor);
+			} else {
+				this.recordState = State.BOTH;
+			}
+		}
+		
+		if (neighbor == rightNeighbor){
+			if (recordState == State.BOTH){
+				this.recordState = State.IDLE;
+				completed_snapshot = true;
+				//forwarder.sendMarker(this.leftNeighbor, this.rightNeighbor);
+				return;
+				}
+			if (recordState == State.IDLE){
+				this.local_state = fishies.size();
+				this.recordState = State.LEFT;
+				forwarder.sendMarker(leftNeighbor, rightNeighbor);
+			} else {
+				this.recordState = State.BOTH;
+			}
+		}
+	}
+	
+	public State get_record_state(){
+		return this.recordState;
+	}
+	
 }
