@@ -30,7 +30,7 @@ public class TankModel extends Observable implements Iterable<FishModel> {
 	protected final Set<FishModel> fishies;
 	protected int fishCounter = 0;
 	protected final ClientCommunicator.ClientForwarder forwarder;
-	protected boolean globalSnapshot = false;
+	public boolean globalSnapshot = false;
 	protected boolean token;
 	protected Timer timer;
 	public SnapshotToken snapToken;
@@ -143,6 +143,8 @@ public class TankModel extends Observable implements Iterable<FishModel> {
 			public void run() {
 				token = false;
 				forwarder.sendToken(leftNeighbor);
+				timer.cancel();
+				timer.purge();
 			}
 		};
 		timer.schedule(task, 2000);
@@ -180,14 +182,11 @@ public class TankModel extends Observable implements Iterable<FishModel> {
 	
 	public void receiveSnapToken(SnapshotToken snapToken){
 		this.snapToken = snapToken;
-		if (!initiator){
+		if (!this.initiator){
 			ExecutorService Executor = Executors.newFixedThreadPool(1);
 			Executor.execute(new tokenRunner());
-			while (true){
-				if (this.snapToken == null){
-					Executor.shutdown();
-				}
-			}
+			if (this.snapToken == null)
+				Executor.shutdown();
 			
 		} else {
 			snapToken.count_global_snapshot(local_state);
@@ -227,6 +226,10 @@ public class TankModel extends Observable implements Iterable<FishModel> {
 	
 	public State get_record_state(){
 		return this.recordState;
+	}
+	
+	public boolean getGlobalSnapshotFinish(){
+		return globalSnapshot;
 	}
 	
 	public class tokenRunner implements Runnable{

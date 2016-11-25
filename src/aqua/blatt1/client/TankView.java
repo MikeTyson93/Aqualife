@@ -22,8 +22,10 @@ public class TankView extends JPanel implements Observer {
 	private final TankModel tankModel;
 	private final FishView fishView;
 	private final Runnable repaintRunnable;
+	int i = 0;
 	private int globalSnapshot = -1;
-
+	private boolean globalFlag = false;
+	
 	public TankView(final TankModel tankModel) {
 		this.tankModel = tankModel;
 		fishView = new FishView();
@@ -54,7 +56,12 @@ public class TankView extends JPanel implements Observer {
 
 	private void doDrawing(Graphics g) {
 		Graphics2D g2d = (Graphics2D) g;
-
+		if (tankModel.initiator && tankModel.getGlobalSnapshotFinish()){
+			if (i == 0){
+			i += 1;
+			showGlobalSnapshot();
+			}
+		}
 		for (FishModel fishModel : tankModel) {
 			g2d.drawImage(fishView.getImage(fishModel), fishModel.getX(), fishModel.getY(), null);
 			g2d.drawString(fishModel.getId(), fishModel.getX(), fishModel.getY());
@@ -68,6 +75,7 @@ public class TankView extends JPanel implements Observer {
 		if (!tankModel.hasToken()){
 			drawBorders((Graphics2D) g);
 		}
+		
 	}
 
 	@Override
@@ -76,8 +84,7 @@ public class TankView extends JPanel implements Observer {
 	}
 	
 	public void showGlobalSnapshot(){
-		if (tankModel.initiator){
+			globalSnapshot = tankModel.snapToken.get_global_snapshot();
 			JOptionPane.showMessageDialog(this, globalSnapshot);
-		}
 	}
 }

@@ -3,6 +3,8 @@ package aqua.blatt1.client;
 import java.awt.Component;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.util.concurrent.TimeUnit;
+
 import aqua.blatt1.client.TankModel;
 import aqua.blatt1.client.TankView;
 import aqua.blatt1.common.msgtypes.SnapshotToken;
@@ -24,6 +26,5 @@ public class SnapshotController implements ActionListener {
 		
 		JOptionPane.showMessageDialog(parent, "Make global Snapshot.");
 		tankModel.initiateSnapshot(true, new SnapshotToken());
-		tankView.showGlobalSnapshot();
 	}
 }
