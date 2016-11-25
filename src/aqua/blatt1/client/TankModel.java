@@ -1,5 +1,7 @@
 package aqua.blatt1.client;
 
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.net.InetSocketAddress;
 import java.util.Collections;
 import java.util.Iterator;
@@ -14,7 +16,6 @@ import java.util.concurrent.TimeUnit;
 import aqua.blatt1.common.Direction;
 import aqua.blatt1.common.FishModel;
 import aqua.blatt1.common.msgtypes.SnapshotToken;
-import aqua.blatt1.common.msgtypes.Token;
 
 public class TankModel extends Observable implements Iterable<FishModel> {
 
@@ -23,14 +24,18 @@ public class TankModel extends Observable implements Iterable<FishModel> {
 	protected static final int MAX_FISHIES = 5;
 	protected InetSocketAddress rightNeighbor;
 	protected InetSocketAddress leftNeighbor;
+	InetSocketAddress myself;
 	protected static final Random rand = new Random();
 	protected volatile String id;
 	protected final Set<FishModel> fishies;
 	protected int fishCounter = 0;
 	protected final ClientCommunicator.ClientForwarder forwarder;
+	protected boolean globalSnapshot = false;
 	protected boolean token;
 	protected Timer timer;
+	public SnapshotToken snapToken;
 	public boolean completed_snapshot = false;
+	protected boolean initiator = false;
 	int local_state = -1;
 	public enum State {
 		IDLE, LEFT, RIGHT, BOTH;
@@ -159,43 +164,63 @@ public class TankModel extends Observable implements Iterable<FishModel> {
 		this.rightNeighbor = rightNeighbor;
 	}
 	
-	public void initiateSnapshot(){
+	public void setMySelf(InetSocketAddress myself){
+		this.myself = myself;
+	}
+	
+	public void initiateSnapshot(boolean init, SnapshotToken snapToken){
 		local_state = fishies.size();
 		recordState = State.BOTH;
 		forwarder.sendMarker(leftNeighbor, rightNeighbor);
+		this.initiator = init;
+		this.snapToken = snapToken;
+		forwarder.sendSnapToken(leftNeighbor, snapToken);
+		snapToken = null;
+	}
+	
+	public void receiveSnapToken(SnapshotToken snapToken){
+		this.snapToken = snapToken;
+		if (!initiator){
+			ExecutorService Executor = Executors.newFixedThreadPool(1);
+			Executor.execute(new tokenRunner());
+			while (true){
+				if (this.snapToken == null){
+					Executor.shutdown();
+				}
+			}
+			
+		} else {
+			snapToken.count_global_snapshot(local_state);
+			globalSnapshot = true;
+		}
 	}
 	
 	public void getLocalSnapshot(InetSocketAddress neighbor){
-		
-		if (neighbor == leftNeighbor){
-			if (recordState == State.BOTH){
-				this.recordState = State.IDLE;
-				completed_snapshot = true;
-				//forwarder.sendMarker(this.leftNeighbor, this.rightNeighbor);
-				return;
-			}
-			if (recordState == State.IDLE){
-				this.local_state = fishies.size();
-				this.recordState = State.RIGHT;
-				forwarder.sendMarker(leftNeighbor, rightNeighbor);
-			} else {
-				this.recordState = State.BOTH;
-			}
+		if (recordState == State.BOTH){
+			this.recordState = State.IDLE;
+			completed_snapshot = true;
+			//forwarder.sendMarker(this.leftNeighbor, this.rightNeighbor);
+			return;
 		}
-		
-		if (neighbor == rightNeighbor){
-			if (recordState == State.BOTH){
-				this.recordState = State.IDLE;
-				completed_snapshot = true;
-				//forwarder.sendMarker(this.leftNeighbor, this.rightNeighbor);
-				return;
+		if (!completed_snapshot){
+			if (neighbor == leftNeighbor){
+				if (recordState == State.IDLE){
+					this.local_state = fishies.size();
+					this.recordState = State.RIGHT;
+					forwarder.sendMarker(leftNeighbor, rightNeighbor);
+				} else {
+					this.recordState = State.BOTH;
 				}
-			if (recordState == State.IDLE){
-				this.local_state = fishies.size();
-				this.recordState = State.LEFT;
-				forwarder.sendMarker(leftNeighbor, rightNeighbor);
-			} else {
-				this.recordState = State.BOTH;
+			}
+		
+			if (neighbor == rightNeighbor){
+				if (recordState == State.IDLE){
+					this.local_state = fishies.size();
+					this.recordState = State.LEFT;
+					forwarder.sendMarker(leftNeighbor, rightNeighbor);
+				} else {
+					this.recordState = State.BOTH;
+				}	
 			}
 		}
 	}
@@ -204,4 +229,22 @@ public class TankModel extends Observable implements Iterable<FishModel> {
 		return this.recordState;
 	}
 	
+	public class tokenRunner implements Runnable{
+		@Override
+		public void run() {
+			while(true){
+				if (completed_snapshot){
+					snapToken.count_global_snapshot(local_state);
+					forwarder.sendSnapToken(leftNeighbor, snapToken);
+					snapToken = null;
+					break;
+				} else {
+					continue;
+				}
+				
+			}
+			
+		}
+		
+	}
 }

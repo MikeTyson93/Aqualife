@@ -7,6 +7,7 @@ import messaging.Message;
 import aqua.blatt1.common.FishModel;
 import aqua.blatt1.common.Properties;
 import aqua.blatt1.common.msgtypes.DeregisterRequest;
+import aqua.blatt1.common.msgtypes.GlobalSnapshotReceived;
 import aqua.blatt1.common.msgtypes.HandoffRequest;
 import aqua.blatt1.common.msgtypes.NeighborUpdate;
 import aqua.blatt1.common.msgtypes.RegisterRequest;
@@ -50,6 +51,11 @@ public class ClientCommunicator {
 			endpoint.send(right, new SnapshotMarker());
 		}
 		
+		public void sendSnapToken(InetSocketAddress left, SnapshotToken snap){
+			endpoint.send(left, snap);
+		}
+		
+		
 	}
 
 	public class ClientReceiver extends Thread {
@@ -73,6 +79,12 @@ public class ClientCommunicator {
 				if (msg.getPayload() instanceof NeighborUpdate){
 					InetSocketAddress left = ((NeighborUpdate) msg.getPayload()).getLeftNeighbor();
 					InetSocketAddress right = ((NeighborUpdate) msg.getPayload()).getRightNeighbor();
+					InetSocketAddress myself = ((NeighborUpdate) msg.getPayload()).getMySelf();
+					
+					if (myself != null){
+						tankModel.setMySelf(myself);
+					}
+					
 					if (left != null){
 						tankModel.setLeftNeighbor(left);
 					}
@@ -87,6 +99,10 @@ public class ClientCommunicator {
 				
 				if (msg.getPayload() instanceof Token){
 					tankModel.receiveToken();
+				}
+				
+				if (msg.getPayload() instanceof SnapshotToken){
+					tankModel.receiveSnapToken((SnapshotToken) msg.getPayload());
 				}
 				
 			}

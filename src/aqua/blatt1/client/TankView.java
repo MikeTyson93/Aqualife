@@ -8,11 +8,13 @@ import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.util.Observable;
 import java.util.Observer;
-
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.SwingUtilities;
 
+import aqua.blatt1.client.TankModel.tokenRunner;
 import aqua.blatt1.common.FishModel;
 
 @SuppressWarnings("serial")
@@ -20,6 +22,7 @@ public class TankView extends JPanel implements Observer {
 	private final TankModel tankModel;
 	private final FishView fishView;
 	private final Runnable repaintRunnable;
+	private int globalSnapshot = -1;
 
 	public TankView(final TankModel tankModel) {
 		this.tankModel = tankModel;
@@ -70,5 +73,11 @@ public class TankView extends JPanel implements Observer {
 	@Override
 	public void update(Observable o, Object arg) {
 		SwingUtilities.invokeLater(repaintRunnable);
+	}
+	
+	public void showGlobalSnapshot(){
+		if (tankModel.initiator){
+			JOptionPane.showMessageDialog(this, globalSnapshot);
+		}
 	}
 }

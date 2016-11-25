@@ -74,11 +74,11 @@ public class Broker{
 			// get left neighbor of affected client
 		    InetSocketAddress leftNeighbor = (InetSocketAddress) clients.getLeftNeighorOf(index_of_client);
 		    // send this client the InetSocketAddresses from the left and right client
-		    endpoint.send(sender, new NeighborUpdate(leftNeighbor, rightNeighbor));
+		    endpoint.send(sender, new NeighborUpdate(sender, leftNeighbor, rightNeighbor));
 		    // send the left client the InetSocketAddresses from the right neighbor
-		    endpoint.send(leftNeighbor, new NeighborUpdate(null, sender));
+		    endpoint.send(leftNeighbor, new NeighborUpdate(null, null, sender));
 		    // send the right client the InetSocketAddresses from the left neighbor
-		    endpoint.send(rightNeighbor, new NeighborUpdate(sender, null));
+		    endpoint.send(rightNeighbor, new NeighborUpdate(null, sender, null));
 		    
 			RegisterResponse response = new RegisterResponse(client_id);
 			if (first_client){
@@ -99,8 +99,8 @@ public class Broker{
 			// get left neighbor of affected client
 		    InetSocketAddress leftNeighbor = (InetSocketAddress) clients.getLeftNeighorOf(index_of_client);
 		    
-		    endpoint.send(leftNeighbor, new NeighborUpdate(null, rightNeighbor));
-		    endpoint.send(rightNeighbor, new NeighborUpdate(leftNeighbor, null));
+		    endpoint.send(leftNeighbor, new NeighborUpdate(null, null, rightNeighbor));
+		    endpoint.send(rightNeighbor, new NeighborUpdate(null, leftNeighbor, null));
 		}
 		
 		public void handoffFish(Serializable payload, InetSocketAddress sender) {
