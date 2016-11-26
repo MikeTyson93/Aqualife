@@ -176,6 +176,9 @@ public class TankModel extends Observable implements Iterable<FishModel> {
 	}
 	
 	public void receiveSnapshotMarker(InetSocketAddress sender){
+		if (initiator)
+			return;
+		
 		switch(record_state){
 			case IDLE :
 				local_state = fishies.size();
@@ -230,7 +233,11 @@ public class TankModel extends Observable implements Iterable<FishModel> {
 		@Override
 		public void run() {
 			while(!local_snapshot_completed){
-				//wait for local snapshot
+				try {
+					TimeUnit.MILLISECONDS.sleep(5);
+				} catch (InterruptedException e) {
+					e.printStackTrace();
+				}
 			}
 			this.gst.add_local_state(local_state);
 			if (!initiator)
