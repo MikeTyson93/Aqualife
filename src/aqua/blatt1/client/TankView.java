@@ -8,15 +8,21 @@ import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.util.Observable;
 import java.util.Observer;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 
+import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.SwingUtilities;
 
 import aqua.blatt1.common.FishModel;
+import aqua.blatt1.common.msgtypes.GlobalSnapshotToken;
 
 @SuppressWarnings("serial")
 public class TankView extends JPanel implements Observer {
 	private final TankModel tankModel;
+	ExecutorService Executor = Executors.newSingleThreadExecutor();
 	private final FishView fishView;
 	private final Runnable repaintRunnable;
 
@@ -70,4 +76,9 @@ public class TankView extends JPanel implements Observer {
 	public void update(Observable o, Object arg) {
 		SwingUtilities.invokeLater(repaintRunnable);
 	}
+	
+	public void show_snapshot(int result){
+		JOptionPane.showMessageDialog(null, "There are currently " + result + " fishies in the Snapshot!");
+	}
+	
 }

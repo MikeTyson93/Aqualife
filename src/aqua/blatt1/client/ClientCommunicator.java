@@ -7,10 +7,12 @@ import messaging.Message;
 import aqua.blatt1.common.FishModel;
 import aqua.blatt1.common.Properties;
 import aqua.blatt1.common.msgtypes.DeregisterRequest;
+import aqua.blatt1.common.msgtypes.GlobalSnapshotToken;
 import aqua.blatt1.common.msgtypes.HandoffRequest;
 import aqua.blatt1.common.msgtypes.NeighborUpdate;
 import aqua.blatt1.common.msgtypes.RegisterRequest;
 import aqua.blatt1.common.msgtypes.RegisterResponse;
+import aqua.blatt1.common.msgtypes.SnapshotMarker;
 import aqua.blatt1.common.msgtypes.Token;
 
 public class ClientCommunicator {
@@ -41,6 +43,14 @@ public class ClientCommunicator {
 		
 		public void sendToken(InetSocketAddress left){
 			endpoint.send(left, new Token());
+		}
+		
+		public void sendSnapshotMarker(InetSocketAddress socket){
+			endpoint.send(socket, new SnapshotMarker());
+		}
+		
+		public void sendGlobalSnapshotToken(InetSocketAddress socket, GlobalSnapshotToken gst){
+			endpoint.send(socket, gst);
 		}
 	}
 
@@ -77,6 +87,12 @@ public class ClientCommunicator {
 					tankModel.receiveToken();
 				}
 				
+				if (msg.getPayload() instanceof SnapshotMarker){
+					tankModel.receiveSnapshotMarker(msg.getSender());
+				}
+				if (msg.getPayload() instanceof GlobalSnapshotToken){
+					tankModel.receiveGlobalSnapshotToken((GlobalSnapshotToken) msg.getPayload());
+				}
 			}
 			System.out.println("Receiver stopped.");
 		}

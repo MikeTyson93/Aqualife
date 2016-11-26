@@ -2,6 +2,7 @@ package aqua.blatt1.client;
 
 import java.net.InetSocketAddress;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.Iterator;
 import java.util.Observable;
 import java.util.Random;
@@ -11,17 +12,27 @@ import java.util.TimerTask;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 
+import javax.swing.JFrame;
+import javax.swing.JOptionPane;
+
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import aqua.blatt1.common.Direction;
 import aqua.blatt1.common.FishModel;
+import aqua.blatt1.common.msgtypes.GlobalSnapshotToken;
 import aqua.blatt1.common.msgtypes.Token;
 
 public class TankModel extends Observable implements Iterable<FishModel> {
-
+	boolean initiator = false;
+	int result = 0;
 	public static final int WIDTH = 600;
 	public static final int HEIGHT = 350;
 	protected static final int MAX_FISHIES = 5;
+	ExecutorService Executor = Executors.newSingleThreadExecutor();
+	public boolean snapshotFinish = false;
 	protected InetSocketAddress rightNeighbor;
 	protected InetSocketAddress leftNeighbor;
+	boolean local_snapshot_completed = false;
 	protected static final Random rand = new Random();
 	protected volatile String id;
 	protected final Set<FishModel> fishies;
@@ -29,7 +40,12 @@ public class TankModel extends Observable implements Iterable<FishModel> {
 	protected final ClientCommunicator.ClientForwarder forwarder;
 	protected boolean token;
 	protected Timer timer;
-
+	int local_state = 0;
+	private enum states{
+		BOTH, IDLE, RIGHT, LEFT
+	}
+	private states record_state = states.IDLE;
+	
 	public TankModel(ClientCommunicator.ClientForwarder forwarder) {
 		this.fishies = Collections.newSetFromMap(new ConcurrentHashMap<FishModel, Boolean>());
 		this.forwarder = forwarder;
@@ -53,6 +69,14 @@ public class TankModel extends Observable implements Iterable<FishModel> {
 	}
 
 	synchronized void receiveFish(FishModel fish) {
+		Direction direction = fish.getDirection();
+		if (direction.getVector() == -1){
+			if (record_state == states.RIGHT || record_state == states.BOTH)
+				local_state++;
+		} else {
+			if (record_state == states.LEFT || record_state == states.BOTH)
+				local_state++;
+		}
 		fish.setToStart();
 		fishies.add(fish);
 	}
@@ -138,5 +162,80 @@ public class TankModel extends Observable implements Iterable<FishModel> {
 
 	public void setRightNeighbor(InetSocketAddress rightNeighbor){
 		this.rightNeighbor = rightNeighbor;
+	}
+	
+	public void initiate_snapshot(){
+		this.local_state = fishies.size();
+		this.record_state = states.BOTH;
+		forwarder.sendSnapshotMarker(leftNeighbor);
+		forwarder.sendSnapshotMarker(rightNeighbor);
+		forwarder.sendGlobalSnapshotToken(leftNeighbor, new GlobalSnapshotToken());
+		initiator = true;
+		snapshotFinish = false;
+		local_snapshot_completed = false;
+	}
+	
+	public void receiveSnapshotMarker(InetSocketAddress sender){
+		switch(record_state){
+			case IDLE :
+				local_state = fishies.size();
+				if (compare(sender, leftNeighbor) == 0)
+					record_state = states.RIGHT;
+				if (compare(sender, rightNeighbor) == 0)
+					record_state = states.LEFT;
+				this.local_state = fishies.size();
+				forwarder.sendSnapshotMarker(leftNeighbor);
+				forwarder.sendSnapshotMarker(rightNeighbor);
+				break;
+			case LEFT:
+				if (compare(sender, leftNeighbor) == 0)
+					record_state = states.IDLE;
+				if (compare(sender, rightNeighbor) == 0)
+					record_state = states.BOTH;
+					local_snapshot_completed = true;
+				break;
+			case RIGHT:
+				if (compare(sender, rightNeighbor) == 0)
+					record_state = states.IDLE;
+				if (compare(sender, leftNeighbor) == 0)
+					record_state = states.BOTH;
+					local_snapshot_completed = true;
+				break;
+			case BOTH:
+				local_snapshot_completed = true;
+				break;
+		default:
+			break;
+		}
+	}
+	
+	public void receiveGlobalSnapshotToken(GlobalSnapshotToken gst){
+		Executor.execute(new wait_for_local_snapshot(gst));
+		if (initiator){
+			snapshotFinish = true;
+			result = gst.get_global_state();
+		}
+	}
+	
+	public int compare(InetSocketAddress o1, InetSocketAddress o2)
+    {
+        return o1.toString().compareTo(o2.toString());
+    }
+	
+	public class wait_for_local_snapshot implements Runnable {
+		GlobalSnapshotToken gst;
+		public wait_for_local_snapshot(GlobalSnapshotToken gst) {
+			this.gst = gst;
+		}
+		@Override
+		public void run() {
+			while(!local_snapshot_completed){
+				//wait for local snapshot
+			}
+			this.gst.add_local_state(local_state);
+			if (!initiator)
+				forwarder.sendGlobalSnapshotToken(leftNeighbor, gst);
+			return;
+		}
 	}
 }
