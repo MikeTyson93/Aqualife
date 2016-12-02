@@ -1,5 +1,6 @@
 package aqua.blatt1.client;
 
+import java.awt.event.ActionListener;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 import java.util.ArrayList;
@@ -64,7 +65,7 @@ public class AquaGui extends JFrame implements Runnable, Observer {
 				while (tankModel.getFishCounter() > size) {
 					String fishId = "fish" + (++size) + "@" + tankModel.getId();
 					JMenuItem fishMenuItem = new JMenuItem(fishId);
-					fishMenuItem.addActionListener(new SnapshotController(AquaGui.this, tankModel, tankView));
+					fishMenuItem.addActionListener(new ToggleController(tankModel));
 					fishMenuItems.add(fishMenuItem);
 					searchMenu.add(fishMenuItem);
 				}

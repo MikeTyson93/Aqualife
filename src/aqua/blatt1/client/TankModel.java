@@ -3,7 +3,9 @@ package aqua.blatt1.client;
 import java.net.InetSocketAddress;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.Iterator;
+import java.util.Map;
 import java.util.Observable;
 import java.util.Random;
 import java.util.Set;
@@ -20,6 +22,7 @@ import java.util.concurrent.Executors;
 import aqua.blatt1.common.Direction;
 import aqua.blatt1.common.FishModel;
 import aqua.blatt1.common.msgtypes.GlobalSnapshotToken;
+import aqua.blatt1.common.msgtypes.LocationRequest;
 import aqua.blatt1.common.msgtypes.Token;
 
 public class TankModel extends Observable implements Iterable<FishModel> {
@@ -45,6 +48,12 @@ public class TankModel extends Observable implements Iterable<FishModel> {
 		BOTH, IDLE, RIGHT, LEFT
 	}
 	private states record_state = states.IDLE;
+	private enum references{
+		HERE, LEFT, RIGHT
+	}
+	Map<String, references> forwardref = new HashMap<String, references>();
+	
+	
 	
 	public TankModel(ClientCommunicator.ClientForwarder forwarder) {
 		this.fishies = Collections.newSetFromMap(new ConcurrentHashMap<FishModel, Boolean>());
@@ -65,11 +74,13 @@ public class TankModel extends Observable implements Iterable<FishModel> {
 					rand.nextBoolean() ? Direction.LEFT : Direction.RIGHT);
 
 			fishies.add(fish);
+			forwardref.put(fish.getId(), references.HERE);
 		}
 	}
 
 	synchronized void receiveFish(FishModel fish) {
 		Direction direction = fish.getDirection();
+		forwardref.put(fish.getId(), references.HERE);
 		if (direction.getVector() == -1){
 			if (record_state == states.RIGHT || record_state == states.BOTH)
 				local_state++;
@@ -98,7 +109,10 @@ public class TankModel extends Observable implements Iterable<FishModel> {
 			FishModel fish = it.next();
 
 			fish.update();
-
+			if (fish.getDirection().getVector() == -1)
+				forwardref.put(fish.getId(), references.LEFT);
+			else
+				forwardref.put(fish.getId(), references.RIGHT);
 			if (fish.hitsEdge()){
 				if (this.token == true){
 					if (fish.getDirection().getVector() == -1){
@@ -243,6 +257,30 @@ public class TankModel extends Observable implements Iterable<FishModel> {
 			if (!initiator)
 				forwarder.sendGlobalSnapshotToken(leftNeighbor, gst);
 			return;
+		}
+	}
+	
+	
+	public void locateFishGlobally(String fish_id){
+		references ref = forwardref.get(fish_id);
+		if (ref == references.HERE){
+			locateFishLocally(fish_id);
+		}
+		else if (ref == references.RIGHT){
+			forwarder.sendLocationRequest(rightNeighbor, fish_id);
+		} else {
+			forwarder.sendLocationRequest(leftNeighbor, fish_id);
+		}
+	}
+	
+	
+	public void locateFishLocally(String fish_id){
+		for (Iterator<FishModel> it = iterator(); it.hasNext();) {
+			FishModel fish = it.next();
+			if (fish.getId().equals(fish_id)){
+				fish.toggle();
+				break;
+			}
 		}
 	}
 }

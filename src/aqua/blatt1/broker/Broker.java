@@ -55,14 +55,14 @@ public class Broker{
 			} else if (payload instanceof HandoffRequest){
 				handoffFish(payload, sender);
 			} else if (payload instanceof RegisterRequest){
-				RegisterResponse response = register(sender);
+				register(sender);
 			} else if (payload instanceof PoisonPill){
 				Executor.shutdown();
 				System.exit(0);
 			}
 		}
 		
-		public RegisterResponse register(InetSocketAddress sender){
+		public void register(InetSocketAddress sender){
 			String client_id = "Tank" + id;
 			id++;
 			lock.writeLock().lock();
@@ -80,13 +80,11 @@ public class Broker{
 		    // send the right client the InetSocketAddresses from the left neighbor
 		    endpoint.send(rightNeighbor, new NeighborUpdate(sender, null));
 		    
-			RegisterResponse response = new RegisterResponse(client_id);
+			endpoint.send(sender, new RegisterResponse(client_id)); 
 			if (first_client){
 				endpoint.send(sender, new Token());
 				first_client = false;
 			}
-			
-			return response;
 		}
 		
 		public void deregister(InetSocketAddress sender){

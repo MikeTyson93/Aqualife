@@ -9,6 +9,7 @@ import aqua.blatt1.common.Properties;
 import aqua.blatt1.common.msgtypes.DeregisterRequest;
 import aqua.blatt1.common.msgtypes.GlobalSnapshotToken;
 import aqua.blatt1.common.msgtypes.HandoffRequest;
+import aqua.blatt1.common.msgtypes.LocationRequest;
 import aqua.blatt1.common.msgtypes.NeighborUpdate;
 import aqua.blatt1.common.msgtypes.RegisterRequest;
 import aqua.blatt1.common.msgtypes.RegisterResponse;
@@ -52,6 +53,11 @@ public class ClientCommunicator {
 		public void sendGlobalSnapshotToken(InetSocketAddress socket, GlobalSnapshotToken gst){
 			endpoint.send(socket, gst);
 		}
+		
+		public void sendLocationRequest(InetSocketAddress socket, String fish_id){
+			endpoint.send(socket, new LocationRequest(fish_id));
+		}
+	
 	}
 
 	public class ClientReceiver extends Thread {
@@ -92,6 +98,9 @@ public class ClientCommunicator {
 				}
 				if (msg.getPayload() instanceof GlobalSnapshotToken){
 					tankModel.receiveGlobalSnapshotToken((GlobalSnapshotToken) msg.getPayload());
+				}
+				if (msg.getPayload() instanceof LocationRequest){
+					tankModel.locateFishGlobally(((LocationRequest) msg.getPayload()).getId());
 				}
 			}
 			System.out.println("Receiver stopped.");
