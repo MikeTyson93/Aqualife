@@ -10,6 +10,9 @@ import aqua.blatt1.common.msgtypes.DeregisterRequest;
 import aqua.blatt1.common.msgtypes.GlobalSnapshotToken;
 import aqua.blatt1.common.msgtypes.HandoffRequest;
 import aqua.blatt1.common.msgtypes.LocationRequest;
+import aqua.blatt1.common.msgtypes.LocationUpdate;
+import aqua.blatt1.common.msgtypes.NameResolutionRequest;
+import aqua.blatt1.common.msgtypes.NameResolutionResponse;
 import aqua.blatt1.common.msgtypes.NeighborUpdate;
 import aqua.blatt1.common.msgtypes.RegisterRequest;
 import aqua.blatt1.common.msgtypes.RegisterResponse;
@@ -57,6 +60,10 @@ public class ClientCommunicator {
 		public void sendLocationRequest(InetSocketAddress socket, String fish_id){
 			endpoint.send(socket, new LocationRequest(fish_id));
 		}
+		
+		public void sendNameResolutionRequest(String tankId, String fishId){
+			endpoint.send(this.broker, new NameResolutionRequest(tankId, fishId));
+		}
 	
 	}
 
@@ -100,7 +107,17 @@ public class ClientCommunicator {
 					tankModel.receiveGlobalSnapshotToken((GlobalSnapshotToken) msg.getPayload());
 				}
 				if (msg.getPayload() instanceof LocationRequest){
-					tankModel.locateFishGlobally(((LocationRequest) msg.getPayload()).getId());
+					tankModel.locateFishLocally(((LocationRequest) msg.getPayload()).getId());
+				}
+				if (msg.getPayload() instanceof NameResolutionResponse){
+					InetSocketAddress homeTank = ((NameResolutionResponse) msg.getPayload()).getRequestAddress();
+					String fishId = ((NameResolutionResponse) msg.getPayload()).getRequestId();
+					endpoint.send(homeTank, new LocationUpdate(fishId));
+				}
+				if (msg.getPayload() instanceof LocationUpdate){
+					InetSocketAddress sender = msg.getSender();
+					String fishId = ((LocationUpdate) msg.getPayload()).getId();
+					tankModel.updateLocation(sender, fishId);
 				}
 			}
 			System.out.println("Receiver stopped.");

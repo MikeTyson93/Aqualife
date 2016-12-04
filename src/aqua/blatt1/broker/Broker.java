@@ -18,6 +18,8 @@ import aqua.blatt1.common.Direction;
 import aqua.blatt1.common.FishModel;
 import aqua.blatt1.common.msgtypes.DeregisterRequest;
 import aqua.blatt1.common.msgtypes.HandoffRequest;
+import aqua.blatt1.common.msgtypes.NameResolutionRequest;
+import aqua.blatt1.common.msgtypes.NameResolutionResponse;
 import aqua.blatt1.common.msgtypes.NeighborUpdate;
 import aqua.blatt1.common.msgtypes.RegisterRequest;
 import aqua.blatt1.common.msgtypes.RegisterResponse;
@@ -59,6 +61,8 @@ public class Broker{
 			} else if (payload instanceof PoisonPill){
 				Executor.shutdown();
 				System.exit(0);
+			} else if (payload instanceof NameResolutionRequest){
+				getAdressFromId(payload, sender);
 			}
 		}
 		
@@ -100,6 +104,16 @@ public class Broker{
 		    endpoint.send(leftNeighbor, new NeighborUpdate(null, rightNeighbor));
 		    endpoint.send(rightNeighbor, new NeighborUpdate(leftNeighbor, null));
 		}
+		
+		
+		public void getAdressFromId(Serializable payload, InetSocketAddress sender){
+			String tankId = ((NameResolutionRequest) payload).getTankId();
+			String requestId = ((NameResolutionRequest) payload).getRequestId();
+			int index = clients.indexOf(tankId);
+			InetSocketAddress client = clients.getClient(index);
+			endpoint.send(sender, new NameResolutionResponse(client, requestId));
+		}
+		
 		
 		public void handoffFish(Serializable payload, InetSocketAddress sender) {
 			int index_of_client = clients.indexOf(sender);

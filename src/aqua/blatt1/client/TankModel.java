@@ -52,6 +52,7 @@ public class TankModel extends Observable implements Iterable<FishModel> {
 		HERE, LEFT, RIGHT
 	}
 	Map<String, references> forwardref = new HashMap<String, references>();
+	Map<String, InetSocketAddress> homeAgent = new HashMap<>();
 	
 	
 	
@@ -75,6 +76,7 @@ public class TankModel extends Observable implements Iterable<FishModel> {
 
 			fishies.add(fish);
 			forwardref.put(fish.getId(), references.HERE);
+			homeAgent.put(fish.getId(), null);
 		}
 	}
 
@@ -90,6 +92,11 @@ public class TankModel extends Observable implements Iterable<FishModel> {
 		}
 		fish.setToStart();
 		fishies.add(fish);
+		if (fish.getTankId() == this.id){
+			homeAgent.put(fish.getId(), null);
+		} else {
+			forwarder.sendNameResolutionRequest(this.id, fish.getId());
+		}
 	}
 
 	public String getId() {
@@ -262,15 +269,8 @@ public class TankModel extends Observable implements Iterable<FishModel> {
 	
 	
 	public void locateFishGlobally(String fish_id){
-		references ref = forwardref.get(fish_id);
-		if (ref == references.HERE){
-			locateFishLocally(fish_id);
-		}
-		else if (ref == references.RIGHT){
-			forwarder.sendLocationRequest(rightNeighbor, fish_id);
-		} else {
-			forwarder.sendLocationRequest(leftNeighbor, fish_id);
-		}
+		InetSocketAddress whereIsMyFish = homeAgent.get(fish_id);
+		forwarder.sendLocationRequest(whereIsMyFish, fish_id);
 	}
 	
 	
@@ -282,5 +282,9 @@ public class TankModel extends Observable implements Iterable<FishModel> {
 				break;
 			}
 		}
+	}
+
+	public void updateLocation(InetSocketAddress sender, String fishId) {
+		homeAgent.put(fishId, sender);
 	}
 }
